@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8" />
+  <title>Heatmaps</title>
+  <link rel="stylesheet" href="static/style.css" />
+</head>
+
+<body>
+  <div id="floating-panel">
+    <div class="group">
+      <div class="subject">Radius <span id="radiusNum">21</span></div>
+      <button onclick="changeRadius(true)">Up</button>
+      <button onclick="changeRadius(false)">Down</button>
+    </div>
+    <div class="group">
+      <div class="subject">Intensity <span id="intensityNum">200</span></div>
+      <button onclick="changeIntensity(true)">Up</button>
+      <button onclick="changeIntensity(false)">Down</button>
+    </div>
+    <div class="group">
+      <div class="subject">Opacity <span id="opacityNum">.6</span></div>
+      <button onclick="changeOpacity(true)">Up</button>
+      <button onclick="changeOpacity(false)">Down</button>
+    </div>
+  </div>
+  <div id="map"></div>
+
+  <script>
+    {
+      navigator.geolocation.getCurrentPosition(
+        function (position) {
+          initMap(position.coords.latitude, position.coords.longitude)
+        },
+        function errorCallback(error) {
+          console.log(error)
+        }
+      );
+
+      const MAX_INTENSITY = 200,
+        RADIUS = 21,
+        OPACITY = 0.6;
+      let map, marker, heatmap;
+
+      function initMap(lat = 50.44817317540497, lng = 30.527596601248057) {
+        map = new google.maps.Map(document.getElementById("map"), {
+          zoom: 12,
+          center: { lat, lng },
+          mapTypeId: "roadmap",
+        });
+
+        marker = new google.maps.Marker({
+          position: { lat, lng },
+          map,
+          animation: google.maps.Animation.DROP,
+        });
+        marker.addListener("click", toggleBounce);
+
+        fetch("static/location.json").then(function (response) {
+          response.json().then(function (result) {
+            let locations = result.locations.map((val) => {
+              return new google.maps.LatLng(
+                val.latitudeE7 * 10 ** -7,
+                val.longitudeE7 * 10 ** -7
+              );
+            });
+
+            heatmap = new google.maps.visualization.HeatmapLayer({
+              data: locations,
+              map: map,
+              maxIntensity: MAX_INTENSITY,
+              radius: RADIUS,
+              opacity: OPACITY,
+            });
+          });
+        });
+      }
+
+      // function to change the radius of data points on heatmap
+      function changeRadius(bool) {
+        const STEP = 3,
+          MIN = 0,
+          MAX = 50;
+        let current = heatmap.get("radius");
+        let newValue = toggleUpDown(bool, current, STEP, MIN, MAX);
+
+        heatmap.set("radius", newValue);
+        document.getElementById("radiusNum").innerText = newValue;
+      }
+
+      // function to change the opacity of the heatmap
+      function changeOpacity(bool) {
+        const STEP = 0.2,
+          MIN = 0,
+          MAX = 1;
+        let current = heatmap.get("opacity");
+        let newValue = toggleUpDown(bool, current, STEP, MIN, MAX);
+        let rounded = round(newValue, 1);
+
+        heatmap.set("opacity", rounded);
+        document.getElementById("opacityNum").innerText = rounded;
+      }
+
+      // function to change maxIntensity of the heatmap
+      function changeIntensity(bool) {
+        const STEP = 25,
+          MIN = 0,
+          MAX = 1000;
+        let current = heatmap.get("maxIntensity");
+        let newValue = toggleUpDown(bool, current, STEP, MIN, MAX);
+
+        heatmap.set("maxIntensity", newValue);
+        document.getElementById("intensityNum").innerText = newValue;
+      }
+
+      // marker animation
+      function toggleBounce() {
+        if (marker.getAnimation() !== null) {
+          marker.setAnimation(null);
+        } else {
+          marker.setAnimation(google.maps.Animation.BOUNCE);
+        }
+      }
+
+      // changes our toggle values and keeps them within our min/max values
+      function toggleUpDown(bool, current, step, min, max) {
+        if ((bool && current >= max) || (!bool && current <= min))
+          return current;
+
+        return bool ? current + step : current - step;
+      }
+
+      // sed to round the opacity toggle to one decimal place
+      function round(value, precision) {
+        const multiplier = Math.pow(10, precision || 0);
+        return Math.round(value * multiplier) / multiplier;
+      }
+    }
+  </script>
+  <script async defer
+    src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY_HERE&libraries=visualization&callback=initMap"></script>
+</body>
+
+</html>
